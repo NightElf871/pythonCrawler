@@ -30,7 +30,7 @@ def getDockerfileFromHtml(html_url):
     else:
         return "fail"
 
-db = pymysql.connect("112.74.190.220","dockerteam","docker","test")
+db = pymysql.connect("[ip]","[username]","[password]","[database-name]")
 
 cursor = db.cursor()
 cursor.execute("SELECT url from test.images LIMIT 50")
