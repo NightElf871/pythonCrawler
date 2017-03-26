@@ -8,12 +8,19 @@ def getName(html_url):
     if len(name) > 0:
         return name[0][0] + "/" + name[0][1]
     else:
-        return "fail"
+        return ""
 
 def getDockerfileFromHtml(html_url):
     _url = html_url+"~/dockerfile/"
     #print(_url)
     req = requests.get(url=_url)
+
+    p_github_url = re.compile(r"github.com/(.+?)\"")
+    res_github_url = p_github_url.findall(req.text)
+    if len(res_github_url) > 0:
+        res_github_url = res_github_url[0]
+    else:
+        res_github_url = ""
 
     p_dockerfile_div = re.compile(r"<div class=\"hljs\".+?>([\s\S]+?)</div>")
     res_div = p_dockerfile_div.findall(req.text, re.M)
@@ -23,17 +30,17 @@ def getDockerfileFromHtml(html_url):
     if len(res_div) > 0:
         res_content = re.subn(p_dockerfile_content, "", res_div[0])
         res_content = res_content[0].replace("\"","\\\"")
-        if len(res_content) > 0:
-            return res_content
-        else:
-            return "fail"
+        if len(res_content) == 0:
+            res_content = ""
     else:
-        return "fail"
+        res_content = ""
 
-db = pymysql.connect("[ip]","[username]","[password]","[database-name]")
+    return res_content, res_github_url
+
+db = pymysql.connect("[ip]","dockerteam","docker","test")
 
 cursor = db.cursor()
-cursor.execute("SELECT url from test.images LIMIT 50")
+cursor.execute("SELECT url from test.images")
 count = 0
 for row in cursor.fetchall():
     count = count + 1
@@ -41,16 +48,19 @@ for row in cursor.fetchall():
     dockerfile_name = getName(row[0])
     print(dockerfile_name)
 
-    dockerfile_content = getDockerfileFromHtml(row[0])
+    dockerfile_content, github_url = getDockerfileFromHtml(row[0])
     #print(docker_file_content)
+    #print(github_url)
 
-    if dockerfile_content != "fail":
+    if dockerfile_content != "":
         try:
-            cursor.execute("INSERT INTO dockerfile(dockerfile_name, dockerfile_content) VALUES(\"%s\",\" %s\")" % (
-            dockerfile_name, dockerfile_content))
+            cursor.execute("INSERT INTO dockerfile(dockerfile_name, github_url, dockerfile_content) VALUES(\"%s\", \" %s\", \"%s\")" % (dockerfile_name, github_url, dockerfile_content))
             db.commit()
+            print("insert into database")
         except Exception as e:
             print(e)
+    else:
+        print("no dockerfile content, ignore")
 
 db.commit()
 db.close()
